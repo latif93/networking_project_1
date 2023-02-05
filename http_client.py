@@ -2,7 +2,7 @@ import socket
 import sys
 import os
 import re
-
+#we referred a lot to a tutorial on realpython (echoclient) to create the skeleton of our client
 args=sys.argv[1]
 
 if args[0].isdigit():
@@ -11,13 +11,11 @@ if args[0].isdigit():
 else:
     redirects = -1
 
-print(f"Redirects: {redirects + 1}")
-
 if redirects == 9:
     sys.exit(5)
 
 if "https" == args[0:5]:
-    sys.stderr.write("Tried to request https page")
+    sys.stderr.write("Tried to request https page.")
     sys.exit(1)
 if "http://" not in args:
     sys.exit(4)
@@ -30,9 +28,8 @@ if ":" in HOST:
     HOST = HOST.split(":")[0]
     
 PATH=  "".join(args[7::].split("/")[1::])
-request =  f"GET /{PATH} HTTP/1.1\r\nHost:{HOST}\r\n\r\n".encode()
+request =  f"GET /{PATH} HTTP/1.0\r\nHost:{HOST}\r\n\r\n".encode()
 response = ""
-
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.connect((HOST, PORT))
     s.sendall(request)
@@ -41,11 +38,16 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if recv == b'':
             break
         response += recv.decode(errors='ignore')
-    body = response[response.index("<")::]
+    if "<" in response:
+        body = response[response.index("<")::]
+    else:
+        if int(response[9:12]) == 403:
+            sys.stderr.write(response)
+        sys.exit(6)
     if int(response[9:12]) > 300 and int(response[9:12]) < 400:
         new_loc = re.findall("Location: .*", response)[0][10:-1]
-        print(new_loc)
-        os.system(f"python3 client.py {redirects+1}{new_loc}")
+        sys.stderr.write(f" Redirected to: {new_loc} ")
+        os.system(f"python3 http_client.py {redirects+1}{new_loc}")
     elif int(response[9:12]) >= 400:
         content_header = re.findall("Content-Type: .*", response)
         if "text/html" in content_header[0]:
@@ -59,3 +61,4 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             print(body)
         else:
             sys.exit(3)
+        sys.exit(0)
